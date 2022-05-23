@@ -72,6 +72,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -263,12 +264,26 @@ func (pin Pin) PullOff() {
 	PullMode(pin, PullOff)
 }
 
+func (pin Pin) shortWait() {
+	for i := 0; i < 150; i++ {
+		fmt.Printf("noop")
+	}
+}
+
 // SupportLegacyPull: remap gpiomem registry to support non-pi4 gpio pull
 func (pin Pin) SupportLegacyPull() {
 	if !isBCM2711() {
+		// Legacy Pull-up/down method
+		legClkOffset := 38 + (uint8(pin) / 32)
+		legShift := (uint8(pin) % 32)
 		reg := GPPUPPDN0 + (uint8(pin) >> 4)
 		x := ^0x3
+		gpioMem[37] = gpioMem[37]&uint32(x) | 2
+		pin.shortWait()
+		gpioMem[legClkOffset] = 1 << legShift
+		pin.shortWait()
 		gpioMem[reg] &= uint32(x)
+		gpioMem[legClkOffset] = 0
 	}
 }
 
