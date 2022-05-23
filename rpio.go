@@ -100,10 +100,10 @@ const (
 
 // BCM 2711 has a different mechanism for pull-up/pull-down/enable
 const (
-	GPPUPPDN0 = 57        // Pin pull-up/down for pins 15:0 
-	GPPUPPDN1 = 58        // Pin pull-up/down for pins 31:16 
-	GPPUPPDN2 = 59        // Pin pull-up/down for pins 47:32 
-	GPPUPPDN3 = 60        // Pin pull-up/down for pins 57:48
+	GPPUPPDN0 = 57 // Pin pull-up/down for pins 15:0
+	GPPUPPDN1 = 58 // Pin pull-up/down for pins 31:16
+	GPPUPPDN2 = 59 // Pin pull-up/down for pins 47:32
+	GPPUPPDN3 = 60 // Pin pull-up/down for pins 57:48
 )
 
 var (
@@ -224,7 +224,7 @@ func (pin Pin) DutyCycle(dutyLen, cycleLen uint32) {
 
 // DutyCycle: Set duty cycle for Pwm pin (see doc of SetDutyCycle)
 func (pin Pin) DutyCyclePercentage(freq int, dutyPercentage uint32) {
-	SetFreq(pin, freq * 100)
+	SetFreq(pin, freq*100)
 	SetDutyCycle(pin, dutyPercentage, 100)
 }
 
@@ -263,9 +263,18 @@ func (pin Pin) PullOff() {
 	PullMode(pin, PullOff)
 }
 
+// SupportLegacyPull: remap gpiomem registry to support non-pi4 gpio pull
+func (pin Pin) SupportLegacyPull() {
+	if !isBCM2711() {
+		reg := GPPUPPDN0 + (uint8(pin) >> 4)
+		x := ^0x3
+		gpioMem[reg] &= uint32(x)
+	}
+}
+
 func (pin Pin) ReadPull() Pull {
 	if !isBCM2711() {
-		return PullNone	// Can't read pull-up/pull-down state on other Pi boards
+		return PullNone // Can't read pull-up/pull-down state on other Pi boards
 	}
 
 	reg := GPPUPPDN0 + (uint8(pin) >> 4)
@@ -278,7 +287,7 @@ func (pin Pin) ReadPull() Pull {
 	case 2:
 		return PullDown
 	default:
-		return PullNone	// Invalid
+		return PullNone // Invalid
 	}
 }
 
@@ -487,51 +496,51 @@ func EdgeDetected(pin Pin) bool {
 }
 
 func PullMode(pin Pin, pull Pull) {
-		
+
 	memlock.Lock()
 	defer memlock.Unlock()
 
 	if isBCM2711() {
 		pullreg := GPPUPPDN0 + (pin >> 4)
 		pullshift := (pin & 0xf) << 1
-		
-		var p uint32 
-		
+
+		var p uint32
+
 		switch pull {
 		case PullOff:
 			p = 0
 		case PullUp:
 			p = 1
 		case PullDown:
-			p = 2;
+			p = 2
 		}
-		
+
 		// This is verbatim C code from raspi-gpio.c
 		pullbits := gpioMem[pullreg]
 		pullbits &= ^(3 << pullshift)
 		pullbits |= (p << pullshift)
-		gpioMem[pullreg]= pullbits
+		gpioMem[pullreg] = pullbits
 	} else {
 		// Pull up/down/off register has offset 38 / 39, pull is 37
 		pullClkReg := pin/32 + 38
 		pullReg := 37
 		shift := pin % 32
-		
+
 		switch pull {
 		case PullDown, PullUp:
 			gpioMem[pullReg] |= uint32(pull)
 		case PullOff:
 			gpioMem[pullReg] &^= 3
 		}
-		
+
 		// Wait for value to clock in, this is ugly, sorry :(
 		time.Sleep(time.Microsecond)
-		
+
 		gpioMem[pullClkReg] = 1 << shift
-		
+
 		// Wait for value to clock in
 		time.Sleep(time.Microsecond)
-		
+
 		gpioMem[pullReg] &^= 3
 		gpioMem[pullClkReg] = 0
 	}
