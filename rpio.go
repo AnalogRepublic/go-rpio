@@ -72,7 +72,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -266,7 +265,7 @@ func (pin Pin) PullOff() {
 
 func (pin Pin) shortWait() {
 	for i := 0; i < 150; i++ {
-		fmt.Printf("noop")
+		// noop
 	}
 }
 
